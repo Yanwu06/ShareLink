@@ -1,0 +1,251 @@
+<Window x:Class="ShareLink.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:ShareLink" xmlns:sharing="clr-namespace:ShareLink.BrowserSharing;assembly=ShareLink.BrowserSharing"
+        Title="ShareLink" Width="1160" Height="820" MinWidth="1040" MinHeight="680" Background="#FAFBFC" Foreground="{StaticResource Ink}" FontSize="17" FontFamily="Microsoft YaHei UI,Segoe UI"
+        WindowStartupLocation="CenterScreen" UseLayoutRounding="True" AllowDrop="True" Drop="Window_Drop" Loaded="Window_Loaded" Closing="Window_Closing" PreviewKeyDown="Window_PreviewKeyDown">
+  <Window.Resources>
+    <Style x:Key="RefreshButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+      <Setter Property="MinHeight" Value="0"/>
+      <Setter Property="Background" Value="White"/><Setter Property="Width" Value="44"/><Setter Property="Height" Value="44"/><Setter Property="Padding" Value="10"/>
+      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
+        <Grid x:Name="Body" RenderTransformOrigin="0.5,0.5"><Grid.RenderTransform><ScaleTransform x:Name="PressScale"/></Grid.RenderTransform>
+          <Border Background="{TemplateBinding Background}" CornerRadius="8"/>
+          <Border x:Name="Feedback" Background="#7A828D" Opacity="0" CornerRadius="8" IsHitTestVisible="False"/>
+          <Border x:Name="PressedFeedback" Background="#727B87" Opacity="0" CornerRadius="8" IsHitTestVisible="False"/>
+          <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        </Grid>
+        <ControlTemplate.Triggers>
+          <Trigger Property="IsMouseOver" Value="True"><Trigger.EnterActions><BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetName="Feedback" Storyboard.TargetProperty="Opacity" To="0.1" Duration="0:0:0.12"/></Storyboard></BeginStoryboard></Trigger.EnterActions><Trigger.ExitActions><BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetName="Feedback" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.16"/></Storyboard></BeginStoryboard></Trigger.ExitActions></Trigger>
+          <Trigger Property="IsPressed" Value="True"><Trigger.EnterActions><BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetName="PressedFeedback" Storyboard.TargetProperty="Opacity" To="0.2" Duration="0:0:0.05"/><DoubleAnimation Storyboard.TargetName="PressScale" Storyboard.TargetProperty="ScaleX" To="0.98" Duration="0:0:0.08"/><DoubleAnimation Storyboard.TargetName="PressScale" Storyboard.TargetProperty="ScaleY" To="0.98" Duration="0:0:0.08"/></Storyboard></BeginStoryboard></Trigger.EnterActions><Trigger.ExitActions><BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetName="PressedFeedback" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.14"/><DoubleAnimation Storyboard.TargetName="PressScale" Storyboard.TargetProperty="ScaleX" To="1" Duration="0:0:0.16"/><DoubleAnimation Storyboard.TargetName="PressScale" Storyboard.TargetProperty="ScaleY" To="1" Duration="0:0:0.16"/></Storyboard></BeginStoryboard></Trigger.ExitActions></Trigger>
+        </ControlTemplate.Triggers>
+      </ControlTemplate></Setter.Value></Setter>
+    </Style>
+
+    <local:DeviceTypeImageConverter x:Key="DeviceTypeImage"/>
+    <DataTemplate x:Key="TransferCard">
+      <Border Background="#F3F6FD" CornerRadius="8" Padding="16" Margin="0,0,0,10" local:Motion.Reveal="True">
+        <StackPanel>
+          <sharing:MarqueeText Text="{Binding Title}" ToolTip="{Binding Title}" FontWeight="SemiBold"/>
+          <TextBlock Text="{Binding Subtitle}" FontSize="15" Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis" Margin="0,6,0,0"/>
+          <Grid Margin="0,12,0,0">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <TextBlock Text="{Binding StateLabel}" Foreground="{Binding StateColor}" FontSize="15" VerticalAlignment="Center"/>
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+              <Button Content="拒绝" Visibility="{Binding AcceptVisibility}" Tag="{Binding Id}" Click="Reject_Click" Style="{StaticResource Quiet}"/>
+              <Button Content="接收" Visibility="{Binding AcceptVisibility}" Tag="{Binding Id}" Click="Accept_Click" Style="{StaticResource Primary}" Padding="12,5" MinHeight="30"/>
+              
+              <Button Content="取消传输" Visibility="{Binding CancelVisibility}" Tag="{Binding Id}" Click="Cancel_Click" Style="{StaticResource Quiet}" FontSize="14"/>
+            </StackPanel>
+          </Grid>
+          <Grid Visibility="{Binding ProgressVisibility}" Margin="0,8,0,8">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="42"/></Grid.ColumnDefinitions>
+            <ProgressBar Minimum="0" Maximum="100" local:Motion.Progress="{Binding Percent}" Height="5" BorderThickness="0" Background="#E1E8F5" Foreground="{StaticResource Blue}" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="1" Text="{Binding PercentLabel}" FontSize="14" Foreground="{StaticResource Muted}" HorizontalAlignment="Right"/>
+          </Grid>
+          <TextBlock Text="{Binding Detail}" FontSize="14" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+        </StackPanel>
+      </Border>
+    </DataTemplate>
+    <DataTemplate x:Key="HistoryCard">
+      <Border BorderBrush="#EEF1F6" BorderThickness="0,0,0,1" Padding="8,18" local:Motion.Reveal="True">
+        <Grid>
+          <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="108"/><ColumnDefinition Width="48"/></Grid.ColumnDefinitions>
+          <StackPanel Margin="0,0,22,0">
+            <sharing:MarqueeText Text="{Binding Title}" ToolTip="{Binding Title}" FontSize="18" FontWeight="SemiBold"/>
+            <TextBlock Text="{Binding Subtitle}" Foreground="{StaticResource Muted}" FontSize="15" Margin="0,6,0,0"/>
+            <TextBlock Text="{Binding Detail}" Foreground="{StaticResource Muted}" FontSize="15" TextWrapping="Wrap" Margin="0,6,0,0"/>
+          </StackPanel>
+          <StackPanel Grid.Column="1" Margin="0,0,20,0" VerticalAlignment="Center"><TextBlock Text="{Binding StateLabel}" Foreground="{Binding StateColor}" FontSize="15" HorizontalAlignment="Right"/></StackPanel>
+          <Button Grid.Column="2" Tag="{Binding}" Click="DeleteHistory_Click" Style="{StaticResource IconButton}" Width="40" Height="40" Padding="10" Background="Transparent" VerticalAlignment="Center" ToolTip="清除此条记录" AutomationProperties.Name="清除此条记录"><Path Data="{StaticResource DeleteGlyph}" Fill="{StaticResource Muted}" Width="20" Height="20" Stretch="Uniform"/></Button>
+        </Grid>
+      </Border>
+    </DataTemplate>
+    <Style x:Key="DefaultModeBadge" TargetType="Border"><Setter Property="Background" Value="White"/><Setter Property="CornerRadius" Value="12"/><Setter Property="Width" Value="40"/><Setter Property="Height" Value="40"/><Setter Property="Margin" Value="0,0,12,0"/><Style.Triggers><DataTrigger Binding="{Binding IsChecked,RelativeSource={RelativeSource AncestorType=RadioButton}}" Value="True"><Setter Property="Background" Value="{StaticResource Blue}"/></DataTrigger></Style.Triggers></Style>
+    <Style x:Key="DefaultModeGlyph" TargetType="Path"><Setter Property="Fill" Value="{StaticResource Ink}"/><Setter Property="Width" Value="26"/><Setter Property="Height" Value="26"/><Setter Property="Stretch" Value="Uniform"/><Style.Triggers><DataTrigger Binding="{Binding IsChecked,RelativeSource={RelativeSource AncestorType=RadioButton}}" Value="True"><Setter Property="Fill" Value="White"/></DataTrigger></Style.Triggers></Style>
+    <Style x:Key="DefaultModeOption" TargetType="RadioButton">
+      <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+      <Setter Property="Cursor" Value="Hand"/><Setter Property="Padding" Value="14"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="RadioButton"><Border x:Name="Surface" Background="#F5F7FC" CornerRadius="8" Padding="{TemplateBinding Padding}"><ContentPresenter/></Border><ControlTemplate.Triggers><Trigger Property="IsChecked" Value="True"><Setter TargetName="Surface" Property="Background"><Setter.Value><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#DBE7FF" Offset="0"/><GradientStop Color="#EEF4FF" Offset="1"/></LinearGradientBrush></Setter.Value></Setter></Trigger><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Surface" Property="Opacity" Value="0.88"/></Trigger><Trigger Property="IsEnabled" Value="False"><Setter TargetName="Surface" Property="Opacity" Value="0.6"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+    </Style>
+    <Style x:Key="NavigationButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}"><Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Padding" Value="16,13"/><Setter Property="Margin" Value="0,0,0,7"/><Style.Triggers><Trigger Property="Tag" Value="True"><Setter Property="Background" Value="#E6EFFF"/><Setter Property="Foreground" Value="{StaticResource Blue}"/><Setter Property="FontWeight" Value="SemiBold"/></Trigger></Style.Triggers></Style>
+  </Window.Resources>
+  <Grid x:Name="Shell" Background="#FAFBFC">
+    <Grid.ColumnDefinitions><ColumnDefinition Width="208"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+    <Border Background="#F5F7FA" BorderBrush="#E3E7ED" BorderThickness="0,0,1,0" Padding="12,26,12,16">
+      <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <StackPanel x:Name="BrandIdentity" Orientation="Horizontal" Margin="10,0,0,30"><Image Source="ShareLinkLogo.png" Width="42" Height="42" Margin="0,0,10,0"/><TextBlock Text="ShareLink" FontSize="24" FontWeight="Bold" VerticalAlignment="Center"/></StackPanel>
+        <StackPanel Grid.Row="1">
+          <Button x:Name="TransferNavButton" Click="TransferNav_Click" Style="{StaticResource NavigationButton}" Tag="True" AutomationProperties.Name="文件分享"><StackPanel Orientation="Horizontal"><Path Data="{StaticResource DualModeGlyph}" Width="22" Height="22" Stretch="Uniform" Fill="{Binding Foreground,RelativeSource={RelativeSource AncestorType=Button}}" Margin="0,0,14,0"/><TextBlock Text="文件分享" VerticalAlignment="Center"/></StackPanel></Button>
+          <Button x:Name="HistoryButton" Click="History_Click" Style="{StaticResource NavigationButton}" AutomationProperties.Name="传输记录"><StackPanel Orientation="Horizontal"><Path Data="{StaticResource HistoryGlyph}" Width="22" Height="22" Stretch="Uniform" Fill="{Binding Foreground,RelativeSource={RelativeSource AncestorType=Button}}" Margin="0,0,14,0"/><TextBlock Text="传输记录" VerticalAlignment="Center"/></StackPanel></Button>
+          <Button x:Name="SettingsButton" Click="Settings_Click" Style="{StaticResource NavigationButton}" AutomationProperties.Name="设置"><StackPanel Orientation="Horizontal"><Path Data="{StaticResource SettingsGlyph}" Width="22" Height="22" Stretch="Uniform" Fill="{Binding Foreground,RelativeSource={RelativeSource AncestorType=Button}}" Margin="0,0,14,0"/><TextBlock Text="设置" VerticalAlignment="Center"/></StackPanel></Button>
+        </StackPanel>
+        <StackPanel Grid.Row="2"><Border BorderBrush="#E0E5ED" BorderThickness="0,1,0,0" Padding="12,20,0,10"><StackPanel Orientation="Horizontal"><Image Source="{StaticResource ComputerDrawing}" Width="25" Height="25" Margin="0,0,12,0"/><TextBlock x:Name="LocalName" Text="本机电脑" Foreground="{StaticResource Muted}" FontSize="14" VerticalAlignment="Center"/></StackPanel></Border><Button Click="Hide_Click" Content="隐藏到托盘" AutomationProperties.Name="隐藏到托盘，继续传输" Style="{StaticResource Quiet}" FontSize="12" HorizontalAlignment="Left" Margin="3,3,0,0"/></StackPanel>
+      </Grid>
+    </Border>
+    <Grid Grid.Column="1" Margin="24,22,24,16"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+      <Grid x:Name="BrandHeader" Height="46" Margin="0,0,0,22"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock x:Name="PageTitle" Text="文件分享" FontSize="28" FontWeight="Bold" VerticalAlignment="Center"/><local:ShareModeSwitch x:Name="BrowserShareButton" Grid.Column="1"/></Grid>
+      <Grid Grid.Row="1" x:Name="PagesHost">
+        <Grid x:Name="TransferPage"><Grid.ColumnDefinitions><ColumnDefinition Width="296"/><ColumnDefinition Width="16"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+          <Border x:Name="DiscoveryCard" Style="{StaticResource Card}" SizeChanged="DiscoveryCard_SizeChanged" Padding="18,20"><Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+            <Grid Margin="0,0,0,12"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="附近设备" FontSize="21" FontWeight="SemiBold" VerticalAlignment="Center"/><Button x:Name="DiscoveryButton" Grid.Column="1" Style="{StaticResource Toggle}" Content="已关闭附近设备发现" Click="Discovery_Click"/><Button x:Name="RefreshDevicesButton" Grid.Column="2" Click="Refresh_Click" Style="{StaticResource RefreshButton}" Background="Transparent" Width="34" Height="34" Padding="7" Margin="3,0,0,0" ToolTip="刷新设备" AutomationProperties.Name="刷新设备"><Path Data="{StaticResource RefreshGlyph}" Fill="{StaticResource Muted}" Stretch="Uniform" RenderTransformOrigin="0.5,0.5"><Path.RenderTransform><RotateTransform x:Name="RefreshRotation"/></Path.RenderTransform></Path></Button></Grid>
+            <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,18"><Ellipse x:Name="DiscoveryStatusDot" Width="8" Height="8" Fill="#31B86B" Margin="0,0,7,0"/><TextBlock x:Name="DiscoveryStatusLabel" Text="发现已开启" Foreground="{StaticResource Muted}" FontSize="14"/></StackPanel>
+            <ScrollViewer x:Name="DeviceScroll" Grid.Row="2" VerticalAlignment="Stretch" VerticalScrollBarVisibility="Auto" Margin="0,0,0,0">
+              <Grid>
+                <StackPanel>
+                  <ItemsControl x:Name="NearbyList"><ItemsControl.ItemTemplate><DataTemplate>
+                    <Button Tag="{Binding}" Click="Nearby_Click" HorizontalContentAlignment="Stretch" Padding="12,16" Margin="0,0,0,8" local:Motion.Reveal="True">
+                      <Button.Style><Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}"><Setter Property="Background" Value="#FFFFFF"/><Setter Property="BorderBrush" Value="#E4E7ED"/><Setter Property="BorderThickness" Value="1"/><Style.Triggers><DataTrigger Binding="{Binding Connected}" Value="True"><Setter Property="Background" Value="#F1F5FF"/><Setter Property="BorderBrush" Value="#2463EB"/><Setter Property="Foreground" Value="{StaticResource Blue}"/></DataTrigger></Style.Triggers></Style></Button.Style>
+                      <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Image Source="{Binding DeviceType,Converter={StaticResource DeviceTypeImage}}" Width="24" Height="24" VerticalAlignment="Center"/><StackPanel Grid.Column="1" Margin="8,0,0,0"><sharing:MarqueeText Text="{Binding Display}" ToolTip="{Binding Display}" Foreground="{Binding Foreground,RelativeSource={RelativeSource AncestorType=Button}}" FontWeight="SemiBold"/><TextBlock Text="{Binding Detail}" FontSize="14" Foreground="{StaticResource Muted}" Margin="0,6,0,0"/></StackPanel></Grid>
+                    </Button>
+                  </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                  <ItemsControl x:Name="PeerList"><ItemsControl.ItemTemplate><DataTemplate><Button Tag="{Binding}" Click="Peer_Click" Padding="12,14" Margin="0,0,0,8" HorizontalContentAlignment="Stretch"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="32"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Image Source="{Binding DeviceType,Converter={StaticResource DeviceTypeImage}}" Width="24" Height="24"/><StackPanel Grid.Column="1"><sharing:MarqueeText Text="{Binding Name}" ToolTip="{Binding Name}"/><TextBlock Text="{Binding Address}" FontSize="14" Foreground="{StaticResource Muted}" Margin="0,5,0,0"/></StackPanel></Grid></Button></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                </StackPanel>
+                <StackPanel x:Name="NoPeersPanel" VerticalAlignment="Center" Margin="8,26,8,26">
+                  <Border Background="#F5F7FC" CornerRadius="26" Width="80" Height="80" HorizontalAlignment="Center"><Image Source="{StaticResource UnknownDeviceDrawing}" Width="40" Height="40"/></Border>
+                  <TextBlock x:Name="NoPeers" Text="打开设备发现，连接身边的设备" Foreground="{StaticResource Muted}" FontSize="15" TextWrapping="Wrap" TextAlignment="Left" LineHeight="22" Margin="0,16,0,0"/>
+                </StackPanel>
+              </Grid>
+            </ScrollViewer>
+            <StackPanel x:Name="DiscoveryFooter" Grid.Row="3" Margin="0,18,0,0">
+              <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="28"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Button x:Name="DiscoveryInfoButton" Click="DiscoveryInfo_Click" Style="{StaticResource Quiet}" Width="24" Height="24" MinHeight="0" Padding="0" VerticalAlignment="Top" ToolTip="连接说明" AutomationProperties.Name="连接说明"><Path Data="{x:Static sharing:LucideIconExtension.Info}" Width="19" Height="19" Stretch="Uniform" Fill="{Binding Foreground,RelativeSource={RelativeSource AncestorType=Button}}"/></Button><StackPanel Grid.Column="1" Margin="7,0,0,0"><TextBlock Text="保持蓝牙与 WLAN 开启" FontSize="14" Foreground="{StaticResource Ink}"/><TextBlock x:Name="ConnectionHint" Text="以便发现附近设备并建立连接。" FontSize="13" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,5,0,0"/></StackPanel></Grid>
+              <Button x:Name="LanConnectButton" Content="通过 IP 地址连接" Click="Connect_Click" Visibility="Collapsed" Style="{StaticResource Quiet}"/><Button x:Name="LanCopyButton" Content="复制连接信息" Click="Copy_Click" Visibility="Collapsed" Style="{StaticResource Quiet}"/>
+            </StackPanel>
+          </Grid></Border>
+          <Grid Grid.Column="2"><Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="12"/><RowDefinition Height="62"/></Grid.RowDefinitions>
+            <Border x:Name="FileCard" Style="{StaticResource Card}" SizeChanged="FileCard_SizeChanged">
+          <Grid>
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*" MinHeight="96"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+            <Grid Margin="0,0,0,16">
+              <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+              <StackPanel><TextBlock Text="本地文件" FontSize="23" FontWeight="Bold"/><TextBlock x:Name="StorageCaption" Text="接收后直接保存到文档中的 ShareLink 接收文件夹 · 双击打开文件" Foreground="{StaticResource Muted}" FontSize="14" TextWrapping="Wrap" Margin="0,8,0,0"/></StackPanel>
+              <Button Grid.Column="1" Click="OpenFolder_Click" Style="{StaticResource IconButton}" Background="#F5F7FC" ToolTip="打开接收文件夹" AutomationProperties.Name="打开接收文件夹" Margin="12,0,0,0"><Path Data="{StaticResource FolderGlyph}" Fill="{StaticResource Ink}" Stretch="Uniform"/></Button>
+            </Grid>
+            <Grid Grid.Row="1">
+              <ScrollViewer x:Name="LocalFileScroll" VerticalScrollBarVisibility="Auto" Margin="-10,0,-10,0">
+                <ItemsControl x:Name="LocalFiles"><ItemsControl.ItemTemplate><DataTemplate>
+                  <Border x:Name="FileRow" Padding="10,12" CornerRadius="14" local:Motion.Reveal="True">
+                    <Grid>
+                      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                      <Button Tag="{Binding}" MouseDoubleClick="OpenLocalFile_DoubleClick" PreviewKeyDown="OpenLocalFile_KeyDown" Style="{StaticResource Quiet}" Foreground="{StaticResource Ink}" Padding="10,6" Margin="-10,-6,0,-6" HorizontalContentAlignment="Stretch" ToolTip="{Binding Name, StringFormat='双击打开：{0}'}">
+                        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="56"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                          <Border Width="44" Height="44" HorizontalAlignment="Left" VerticalAlignment="Center" Background="Transparent" CornerRadius="10"><Image Source="{StaticResource FileDrawing}" sharing:ShellThumbnail.FilePath="{Binding Path}" Width="36" Height="36" Stretch="Uniform" SnapsToDevicePixels="True" UseLayoutRounding="True" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                          <StackPanel Grid.Column="1" Margin="0,0,10,0" VerticalAlignment="Center"><sharing:MarqueeText Text="{Binding Name}" ToolTip="{Binding Name}" FontSize="17" FontWeight="SemiBold"/><TextBlock Text="{Binding Detail}" FontSize="15" Foreground="{StaticResource Muted}" Margin="0,6,0,0"/></StackPanel>
+                        </Grid>
+                      </Button>
+                      <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Tag="{Binding}" Click="LocateLocalFile_Click" Style="{StaticResource Quiet}" ToolTip="打开文件位置" AutomationProperties.Name="打开文件位置" Padding="9"><Path Data="{StaticResource FolderGlyph}" Fill="{StaticResource Muted}" Stretch="Uniform" Width="18" Height="18"/></Button>
+                        <Button Tag="{Binding}" Click="DeleteLocalFile_Click" Style="{StaticResource Quiet}" ToolTip="删除文件" AutomationProperties.Name="删除文件" Padding="9"><Path Data="{StaticResource DeleteGlyph}" Fill="{StaticResource Muted}" Stretch="Uniform" Width="18" Height="18"/></Button>
+                      </StackPanel>
+                    </Grid>
+                  </Border>
+                  <DataTemplate.Triggers><Trigger SourceName="FileRow" Property="IsMouseOver" Value="True"><Setter TargetName="FileRow" Property="Background" Value="#F7F9FD"/></Trigger></DataTemplate.Triggers>
+                </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+              </ScrollViewer>
+              <StackPanel x:Name="EmptyLocalFiles" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="20">
+                <Border x:Name="EmptyFileBadge" Width="80" Height="80" CornerRadius="25" Background="#F4F7FC" HorizontalAlignment="Center"><Image Source="{StaticResource FileDrawing}" Width="38" Height="38" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                <TextBlock Text="文件，随手就能分享" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,18,0,8"/>
+                <TextBlock Text="把文件拖到这里，或点击下方添加文件" Foreground="{StaticResource Muted}" FontSize="15" TextAlignment="Left" TextWrapping="Wrap"/>
+              </StackPanel>
+            </Grid>
+            <ScrollViewer x:Name="ActiveScroll" Grid.Row="2" Visibility="Collapsed" ClipToBounds="True" VerticalScrollBarVisibility="Auto" MaxHeight="220" Margin="0,14,0,0"><ItemsControl x:Name="ActiveTransfers" ItemTemplate="{StaticResource TransferCard}"/></ScrollViewer>
+            <Border x:Name="SelectionPanel" Grid.Row="3" BorderBrush="#EDF1F7" BorderThickness="0,1,0,0" Padding="0,14,0,0" Margin="0,12,0,0" Visibility="Collapsed">
+              <StackPanel><Grid><TextBlock Text="待发送" FontWeight="SemiBold" FontSize="16"/><TextBlock x:Name="SelectionSummary" Text="尚未选择文件" Foreground="{StaticResource Muted}" FontSize="14" HorizontalAlignment="Right"/></Grid>
+                <ScrollViewer x:Name="SelectionScroll" VerticalScrollBarVisibility="Auto" MaxHeight="142" Margin="0,10,0,0"><ItemsControl x:Name="SelectedFiles"><ItemsControl.ItemTemplate><DataTemplate>
+                  <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="40"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><Image Source="{StaticResource FileDrawing}" sharing:ShellThumbnail.FilePath="{Binding Path}" Width="32" Height="32" HorizontalAlignment="Left"/><StackPanel Grid.Column="1" VerticalAlignment="Center"><sharing:MarqueeText Text="{Binding Name}" ToolTip="{Binding Name}" FontSize="15"/><TextBlock Text="{Binding SizeLabel}" FontSize="13" Foreground="{StaticResource Muted}" Margin="0,3,0,0"/></StackPanel><Button Grid.Column="2" Content="移除" Tag="{Binding}" Click="RemoveFile_Click" Style="{StaticResource Quiet}" FontSize="14" Margin="8,0,0,0"/></Grid>
+                </DataTemplate></ItemsControl.ItemTemplate></ItemsControl></ScrollViewer>
+              </StackPanel>
+            </Border>
+          </Grid>
+        </Border>
+            <Border x:Name="SendBar" Grid.Row="2" Background="White" BorderBrush="#E3E7ED" BorderThickness="1" CornerRadius="8" Padding="10,8"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="2*" MinWidth="220"/></Grid.ColumnDefinitions><Button x:Name="AddFilesButton" Click="SelectFiles_Click" FontSize="16" Background="White" Padding="14,8"><StackPanel Orientation="Horizontal"><Path Data="{StaticResource AddGlyph}" Fill="{StaticResource Blue}" Stretch="Uniform" Width="16" Height="16" Margin="0,0,9,0"/><TextBlock Text="添加文件" VerticalAlignment="Center"/></StackPanel></Button><TextBlock Grid.Column="1" Text="{Binding Text,ElementName=SelectionSummary}" Foreground="{StaticResource Muted}" FontSize="13" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="14,0"/><Button x:Name="SendButton" Grid.Column="2" Click="Send_Click" Style="{StaticResource Primary}" IsEnabled="False" HorizontalContentAlignment="Stretch" Padding="15,8" MinWidth="220">
+            <Grid>
+              <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="20"/></Grid.ColumnDefinitions>
+              <Grid x:Name="TargetContentHost" Margin="0,0,12,0" SizeChanged="SendTarget_SizeChanged" IsVisibleChanged="SendTarget_IsVisibleChanged">
+              <Grid x:Name="TargetGroup" HorizontalAlignment="Center">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <TextBlock x:Name="TargetPrefix" Text="发送到：" Visibility="Collapsed" Foreground="{Binding Foreground,RelativeSource={RelativeSource AncestorType=Button}}" FontSize="17" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                <Rectangle x:Name="TargetDeviceIcon" Grid.Column="1" Width="24" Height="24" Margin="5,0,7,0" Visibility="Collapsed" Fill="{Binding Foreground,RelativeSource={RelativeSource AncestorType=Button}}" IsHitTestVisible="False">
+                  <Rectangle.OpacityMask><ImageBrush ImageSource="{Binding Tag,ElementName=TargetDeviceIcon,Converter={StaticResource DeviceTypeImage}}" Stretch="Uniform"/></Rectangle.OpacityMask>
+                </Rectangle>
+                <Border x:Name="TargetNameViewport" Grid.Column="2" ClipToBounds="True"><Canvas Height="26" ClipToBounds="False"><TextBlock x:Name="TargetLabel" Text="请连接接收设备" Foreground="{Binding Foreground,RelativeSource={RelativeSource AncestorType=Button}}" FontSize="17" FontWeight="SemiBold" HorizontalAlignment="Left" VerticalAlignment="Center"><TextBlock.RenderTransform><TranslateTransform x:Name="TargetNameTranslation"/></TextBlock.RenderTransform></TextBlock></Canvas></Border>
+              </Grid>
+              </Grid>
+              <Path Grid.Column="1" Data="{StaticResource ArrowRightGlyph}" Fill="{Binding Foreground,RelativeSource={RelativeSource AncestorType=Button}}" Stretch="Uniform" Width="18" Height="18" VerticalAlignment="Center"/>
+            </Grid>
+          </Button></Grid></Border>
+          </Grid>
+        </Grid>
+        <Image x:Name="ModeTransitionOverlay" Panel.ZIndex="50" Visibility="Collapsed" IsHitTestVisible="False" Stretch="Fill"/>
+        <ContentControl x:Name="BrowserHome" Visibility="Collapsed"/>
+        <Border x:Name="HistoryPage" Style="{StaticResource Card}" Visibility="Collapsed">
+      <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+        <Grid Margin="0,0,0,16"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><Button x:Name="HistoryBackButton" Click="HistoryBack_Click" Style="{StaticResource IconButton}" Background="#F5F7FC" ToolTip="返回文件互传" AutomationProperties.Name="返回文件互传"><Path Data="{StaticResource BackGlyph}" Fill="{StaticResource Ink}" Stretch="Uniform"/></Button><StackPanel Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center"><TextBlock Text="传输记录" FontSize="24" FontWeight="Bold"/><TextBlock Text="只记录传输，清除记录不会删除文件" FontSize="14" Foreground="{StaticResource Muted}" Margin="0,5,0,0"/></StackPanel><Button Grid.Column="2" x:Name="ClearAllHistoryButton" Content="全部清除" Click="ClearHistory_Click" Style="{StaticResource Quiet}" VerticalAlignment="Center"/></Grid>
+        <Grid Grid.Row="1"><ScrollViewer x:Name="HistoryScroll" VerticalScrollBarVisibility="Auto"><ItemsControl x:Name="Transfers" ItemTemplate="{StaticResource HistoryCard}"/></ScrollViewer><TextBlock x:Name="EmptyTransfers" Text="暂无已结束的传输记录" Foreground="{StaticResource Muted}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Grid>
+      </Grid>
+    </Border>
+        <Border x:Name="SettingsPage" Style="{StaticResource Card}" Padding="24" Visibility="Collapsed">
+          <Border.Resources>
+            <Style x:Key="SettingsAction" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+              <Setter Property="Width" Value="120"/><Setter Property="Height" Value="40"/><Setter Property="Padding" Value="14,8"/>
+            </Style>
+          </Border.Resources>
+          <Grid>
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,18">
+              <Button x:Name="SettingsBackButton" Click="SettingsBack_Click" Style="{StaticResource IconButton}" Width="44" Height="44" Background="#F5F7FC" ToolTip="返回文件分享" AutomationProperties.Name="返回文件分享"><Path Data="{StaticResource BackGlyph}" Fill="{StaticResource Ink}" Stretch="Uniform"/></Button>
+              <TextBlock Text="设置" FontSize="24" FontWeight="Bold" Margin="12,0,0,0" VerticalAlignment="Center"/>
+            </StackPanel>
+            <ScrollViewer x:Name="SettingsScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto">
+              <StackPanel Margin="0,0,12,0">
+                <TextBlock Text="更改文件保存位置" FontSize="19" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                <Grid>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBox x:Name="StoragePathBox" IsReadOnly="True" Height="40" Padding="6,2,6,4" VerticalContentAlignment="Center" AutomationProperties.Name="文件保存位置"/>
+                  <Button x:Name="BrowseStorageButton" Grid.Column="1" Content="更改文件夹" Click="BrowseStorage_Click" Margin="12,0,0,0" Height="40" MinWidth="128" Padding="14,6"/>
+                  <Button x:Name="ResetStorageButton" Grid.Column="2" Content="恢复默认" Click="ResetStorage_Click" Margin="12,0,0,0" Height="40" MinWidth="112" Padding="14,6"/>
+                </Grid>
+                <TextBlock x:Name="StorageSettingsHint" Foreground="{StaticResource Muted}" FontSize="14" TextWrapping="Wrap" Margin="0,8,0,0" Visibility="Collapsed"/>
+                <TextBlock Text="默认分享方式" FontSize="19" FontWeight="SemiBold" Margin="0,28,0,12"/>
+                <Grid x:Name="DefaultModeOptions">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                  <RadioButton x:Name="DefaultSingleMode" GroupName="DefaultShareMode" Style="{StaticResource DefaultModeOption}" Checked="DefaultShareMode_Changed" AutomationProperties.Name="默认浏览器分享"><StackPanel Orientation="Horizontal"><Border Style="{StaticResource DefaultModeBadge}"><Path Data="{StaticResource SingleModeGlyph}" Style="{StaticResource DefaultModeGlyph}"/></Border><TextBlock Text="浏览器分享" VerticalAlignment="Center"/></StackPanel></RadioButton>
+                  <RadioButton x:Name="DefaultDualMode" Grid.Column="2" GroupName="DefaultShareMode" Style="{StaticResource DefaultModeOption}" Checked="DefaultShareMode_Changed" AutomationProperties.Name="默认设备互传"><StackPanel Orientation="Horizontal"><Border Style="{StaticResource DefaultModeBadge}"><Path Data="{StaticResource DualModeGlyph}" Style="{StaticResource DefaultModeGlyph}"/></Border><TextBlock Text="设备互传" VerticalAlignment="Center"/></StackPanel></RadioButton>
+                </Grid>
+                <StackPanel x:Name="DefaultModeHints" Margin="0,12,0,0">
+                  <TextBlock Text="浏览器分享：对方无需安装 ShareLink，通过浏览器收发文件。" FontSize="14" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,6"/>
+                  <TextBlock Text="设备互传：双方都安装并打开 ShareLink，在附近设备中连接。" FontSize="14" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                  <TextBlock Text="默认模式将在下次启动时生效。" FontSize="13" Foreground="{StaticResource Muted}"/>
+                </StackPanel>
+                <Border Height="1" Background="#EEF1F6" Margin="0,24,0,20"/>
+                <Grid>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <StackPanel VerticalAlignment="Center"><TextBlock Text="关于 ShareLink" FontSize="19" FontWeight="SemiBold"/><TextBlock x:Name="SettingsVersion" FontSize="15" Foreground="{StaticResource Muted}" Margin="0,6,0,0"/></StackPanel>
+                  <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+                    <Button x:Name="DownloadLinkButton" Content="下载链接" Click="DownloadLink_Click" Style="{StaticResource SettingsAction}"/>
+                    <Button x:Name="FeedbackButton" Content="意见反馈" Click="Feedback_Click" Style="{StaticResource SettingsAction}" Margin="12,0,0,0"/>
+                    <Button x:Name="SupportDeveloperButton" Content="支持开发者" Click="SupportDeveloper_Click" Style="{StaticResource SettingsAction}" Margin="12,0,0,0"/>
+                    <Button x:Name="CheckUpdatesButton" Content="检查更新" Click="CheckUpdates_Click" Style="{StaticResource SettingsAction}" Margin="12,0,0,0"/>
+                  </StackPanel>
+                </Grid>
+              </StackPanel>
+            </ScrollViewer>
+          </Grid>
+        </Border>
+        <StackPanel x:Name="TechnicalStatusPanel" Visibility="Collapsed">
+        <TextBlock x:Name="ServiceStatus" Text="●  正在启动" FontSize="15" Foreground="#347D69"/>
+        <TextBlock x:Name="StatusMessage" Text="文件不经过云端；接收前需要你的确认。" FontSize="14" Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis" Margin="0,5,0,0" ToolTip="{Binding Text,RelativeSource={RelativeSource Self}}"/>
+        <Expander x:Name="ConnectionDetails" Header="连接详情" FontSize="15" Foreground="{StaticResource Muted}" Margin="0,4,0,0" MaxHeight="150" Expanded="ConnectionDetails_Expanded">
+          <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="8,10,4,4">
+            <TextBlock x:Name="NetworkSummary" Text="正在采集链路信息…" FontSize="14" TextWrapping="Wrap" Foreground="{StaticResource Muted}"/>
+            <TextBlock x:Name="NetworkDecision" Text="传输结束后恢复原网络。" FontSize="14" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,6,0,0"/>
+            <TextBlock x:Name="BluetoothStatus" Text="蓝牙附近发现尚未开启" FontSize="14" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,6,0,0"/>
+            <CheckBox x:Name="KeepNetwork" Content="保持当前网络" Checked="NetworkPreference_Changed" Unchecked="NetworkPreference_Changed" Margin="0,6,0,0"/>
+            <Button x:Name="RestoreNetworkButton" Content="恢复原网络并断开手机" Click="RestoreNetwork_Click" Visibility="Collapsed" HorizontalAlignment="Left" Style="{StaticResource Quiet}" FontSize="14" Margin="0,6,0,0"/>
+            <TextBlock x:Name="LocalAddress" Text="正在启动服务" FontSize="13" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+          </StackPanel></ScrollViewer>
+        </Expander>
+      </StackPanel>
+        <Border x:Name="ToastHost" Grid.RowSpan="4" Panel.ZIndex="10" Visibility="Collapsed" IsHitTestVisible="False" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="24,0,24,90" Background="#FFFFFF" BorderThickness="0" CornerRadius="14" Padding="16,11"><Border.Effect><DropShadowEffect BlurRadius="16" ShadowDepth="3" Opacity="0.1"/></Border.Effect><TextBlock x:Name="ToastMessage" MaxWidth="520" FontSize="18" LineHeight="23" TextWrapping="Wrap" VerticalAlignment="Center"/></Border>
+      </Grid>
+    </Grid>
+    <Popup x:Name="DiscoveryInfoPopup" PlacementTarget="{Binding ElementName=DiscoveryInfoButton}" Placement="Top" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade"><Border Background="White" BorderBrush="#D9DEE8" BorderThickness="1" CornerRadius="8" Padding="18" Width="320" Margin="6"><Border.Effect><DropShadowEffect BlurRadius="14" ShadowDepth="2" Opacity="0.12"/></Border.Effect><StackPanel><TextBlock Text="连接说明" FontWeight="SemiBold" FontSize="16" Margin="0,0,0,10"/><TextBlock Text="使用设备互传时，双方需打开 ShareLink；连接后会为传输建立临时 Wi-Fi。" Foreground="{StaticResource Muted}" TextWrapping="Wrap" LineHeight="21"/><TextBlock Text="两台 Windows 电脑互传时，为保证传输速度，请尽量让一方连接 5 GHz Wi-Fi。" Foreground="{StaticResource Muted}" TextWrapping="Wrap" LineHeight="21" Margin="0,10,0,0"/><TextBlock x:Name="DiscoveryCompatibilityHint" Text="本软件可能与部分电脑管家冲突；无法发现设备时，可改用浏览器分享。" Foreground="{StaticResource Muted}" TextWrapping="Wrap" LineHeight="21" Margin="0,10,0,0"/></StackPanel></Border></Popup>
+  </Grid>
+</Window>

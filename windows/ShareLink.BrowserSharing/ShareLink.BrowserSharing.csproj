@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="QRCoder" Version="1.7.0" />
+    <InternalsVisibleTo Include="ShareLink.BrowserShareProbe" />
+    <Resource Include="../ShareLink.App/ShareLinkLogo.png" Link="ShareLinkLogo.png" />
+    <EmbeddedResource Include="../../shared/browser-*" LogicalName="ShareLink.BrowserSharing.%(Filename)%(Extension)" />
+    <None Update="Lucide.LICENSE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
